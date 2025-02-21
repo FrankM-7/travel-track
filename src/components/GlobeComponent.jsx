@@ -1,38 +1,55 @@
 import React, { useEffect, useRef, useState } from "react";
 import Globe from 'react-globe.gl';
 import * as THREE from 'three'; // Import Three.js for 3D objects
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import filePath from '../resources/Airplane.glb'; // Path to the GLTF model
 
 const GlobeComponent = ({ arcs }) => {
   const globeRef = useRef(null);
   const [globeImageUrl, setGlobeImageUrl] = useState("//unpkg.com/three-globe/example/img/earth-night.jpg");
   const [bumpImageUrl, setBumpImageUrl] = useState("//unpkg.com/three-globe/example/img/earth-topology.png");
   const [backgroundImageUrl, setBackgroundImageUrl] = useState("//unpkg.com/three-globe/example/img/night-sky.png");
+  const loader = new GLTFLoader(); // Initialize the GLTF loader
 
   useEffect(() => {
     if (!globeRef.current) return;
 
     const globe = globeRef.current;
 
-    // Create a basic plane (a box for simplicity)
-    const createPlane = (lat, lng) => {
-      const geometry = new THREE.BoxGeometry(2, 2, 2); // Create a simple cube
-      const material = new THREE.MeshBasicMaterial({ color: 0xff5722 });
-      const plane = new THREE.Mesh(geometry, material);
-      
-      // Position the plane on the globe using lat and lng coordinates
-      const globeCoord = globe.getCoords(lat, lng);
-      const [x, y, z] = [globeCoord.x, globeCoord.y, globeCoord.z];
-      plane.position.set(x, y, z);
+    // Load the GLTF model and add it to the globe
+    const loadModel = (lat, lng, modelUrl) => {
+      loader.load(
+        modelUrl,
+        (gltf) => {
+          const model = gltf.scene;
 
-      return plane;
+          // Position the model on the globe using lat and lng coordinates
+          const coords = globe.getCoords(lat, lng);
+          model.position.set(coords.x, coords.y, coords.z);
+
+          // Optionally scale the model if necessary
+          model.scale.set(.5, .5, .5); // Adjust the scale to fit
+          // rotate 
+          model.rotation.x = Math.PI / 2;
+          model.rotation.y = Math.PI / 2;
+          
+
+          // Add the model to the scene
+          globe.scene().add(model);
+        },
+        undefined, // onProgress (optional)
+        (error) => {
+          console.error('Error loading GLTF model:', error);
+        }
+      );
     };
 
-    // Add planes for each arc's start and end point
+    // Loop through the arcs and add the GLTF model at start and end points
     arcs.forEach((arc) => {
-      const startPlane = createPlane(arc.startLat, arc.startLng);
-      const endPlane = createPlane(arc.endLat, arc.endLng);
-      globe.scene().add(startPlane);
-      globe.scene().add(endPlane);
+      // Provide the path to your GLTF model
+      const modelUrl = filePath;      
+      loadModel(arc.startLat, arc.startLng, modelUrl);
+      loadModel(arc.endLat, arc.endLng, modelUrl);
     });
   }, [arcs]);
 

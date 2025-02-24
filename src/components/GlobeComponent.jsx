@@ -11,31 +11,74 @@ const GlobeComponent = ({ arcs }) => {
   const [backgroundImageUrl, setBackgroundImageUrl] = useState("//unpkg.com/three-globe/example/img/night-sky.png");
   const loader = new GLTFLoader(); // Initialize the GLTF loader
 
+  function drawCube(globe, x, y, z) {
+    // DEBUG: Add small cube markers along the path
+    const cubeGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.5); // Tiny cubes
+    const cubeMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Red color
+    const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+    cube.position.copy(new THREE.Vector3(x, y, z));
+    globe.scene().add(cube);
+  }
+
+  function slerp(p1, p2, t) {
+    const omega = Math.acos(Math.min(Math.max(p1.clone().dot(p2.clone()), -1.0), 1.0));
+    const so = Math.sin(omega);
+    const first = (Math.sin((1 - t) * omega) / so);
+    const second = p1.clone();
+    const third = (Math.sin(t * omega) / so);
+    const fourth = p2.clone();
+
+    return second.multiplyScalar(first).add(fourth.multiplyScalar(third));
+  }
+
+  function generateArcPoints(p1, p2, numPoints = 100, arc_height = 0.5) {
+    // normalize p1 and p2
+    const p1_n = p1.clone().normalize();
+    const p2_n = p2.clone().normalize();
+    const points = [];
+    for(let i = 0; i < numPoints; i++) {
+      const t = i / (numPoints - 1);
+      const point = slerp(p1_n, p2_n, t);
+      const elevatedPoint = (point.normalize()).multiplyScalar(1 + arc_height * Math.sin(t * Math.PI));
+      points.push(elevatedPoint);
+    }
+    return points;
+  }
+
   useEffect(() => {
     if (!globeRef.current) return;
 
     const globe = globeRef.current;
 
     // Load the GLTF model and add it to the globe
-    const loadModel = (lat, lng, modelUrl) => {
+    const loadModel = (startLat, startLng, endLat, endLng, modelUrl) => {
       loader.load(
         modelUrl,
         (gltf) => {
           const model = gltf.scene;
 
-          // Position the model on the globe using lat and lng coordinates
-          const coords = globe.getCoords(lat, lng);
-          model.position.set(coords.x, coords.y, coords.z);
+          // Get start and end point positions
+          const startCoords = globe.getCoords(startLat, startLng);
+          const endCoords = globe.getCoords(endLat, endLng);
 
-          // Optionally scale the model if necessary
+          // Convert to normalized vectors
+          const startVec = new THREE.Vector3(startCoords.x, startCoords.y, startCoords.z);
+          const endVec = new THREE.Vector3(endCoords.x, endCoords.y, endCoords.z);
+                    
+          const arcPoints = [];
+          generateArcPoints(startVec, endVec, 100, 0).forEach(point => {
+            // drawCube(globe, point.x * 100, point.y * 100, point.z * 100);
+            arcPoints.push(new THREE.Vector3(point.x * 100, point.y * 100, point.z * 100));
+          });
+
+          // Position and scale the model
+          model.position.copy(arcPoints[0]);
           model.scale.set(.5, .5, .5); // Adjust the scale to fit
-          // rotate 
-          model.rotation.x = Math.PI / 2;
-          model.rotation.y = Math.PI / 2;
-          
+          // rotate the model to start at arcPoints[0] and point at arcPoints[1]
+          model.lookAt(arcPoints[1]);
 
-          // Add the model to the scene
           globe.scene().add(model);
+        
         },
         undefined, // onProgress (optional)
         (error) => {
@@ -46,10 +89,8 @@ const GlobeComponent = ({ arcs }) => {
 
     // Loop through the arcs and add the GLTF model at start and end points
     arcs.forEach((arc) => {
-      // Provide the path to your GLTF model
-      const modelUrl = filePath;      
-      loadModel(arc.startLat, arc.startLng, modelUrl);
-      loadModel(arc.endLat, arc.endLng, modelUrl);
+      const modelUrl = filePath;
+      loadModel(arc.startLat, arc.startLng, arc.endLat, arc.endLng, modelUrl);
     });
   }, [arcs]);
 
@@ -60,6 +101,9 @@ const GlobeComponent = ({ arcs }) => {
       bumpImageUrl={bumpImageUrl}
       backgroundImageUrl={backgroundImageUrl}
       arcsData={arcs}
+      arcColor={'color'}
+      arcAltitude={'altitude'}
+      // showGlobe={false}
     />
   );
 };

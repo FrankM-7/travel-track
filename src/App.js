@@ -12,7 +12,8 @@ const App = () => {
       startLng,
       endLat,
       endLng,
-      color: "#ff5722", // Arc color
+      color: "#ff5722",
+      altitude: 0,
     });
     setArcs([...arcs, newArc]); // Add new arc to the list
   };

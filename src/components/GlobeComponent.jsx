@@ -65,20 +65,56 @@ const GlobeComponent = ({ arcs }) => {
           const startVec = new THREE.Vector3(startCoords.x, startCoords.y, startCoords.z);
           const endVec = new THREE.Vector3(endCoords.x, endCoords.y, endCoords.z);
                     
-          const arcPoints = [];
-          generateArcPoints(startVec, endVec, 100, 0).forEach(point => {
+          // Generate arc points
+          const arcPoints = generateArcPoints(startVec, endVec, 100, .1).map(point =>
             // drawCube(globe, point.x * 100, point.y * 100, point.z * 100);
-            arcPoints.push(new THREE.Vector3(point.x * 100, point.y * 100, point.z * 100));
-          });
+            new THREE.Vector3(point.x * 100, point.y * 100, point.z * 100)
+          );
 
-          // Position and scale the model
+           // Position and scale the model
           model.position.copy(arcPoints[0]);
-          model.scale.set(.5, .5, .5); // Adjust the scale to fit
-          // rotate the model to start at arcPoints[0] and point at arcPoints[1]
+          model.scale.set(0.5, 0.5, 0.5);
           model.lookAt(arcPoints[1]);
 
           globe.scene().add(model);
-        
+
+          // Animation variables
+          let currentIndex = 0;
+          const animatePlane = () => {
+            const speed = 0.2; // Lower number = slower plane, higher = faster
+            let progress = 0; // Tracks movement between points
+          
+            const step = () => {
+              if (currentIndex < arcPoints.length - 1) {
+                const startPoint = arcPoints[currentIndex];
+                const endPoint = arcPoints[currentIndex + 1];
+          
+                // Interpolate between points based on progress
+                model.position.lerpVectors(startPoint, endPoint, progress);
+          
+                // Make the plane look toward the next point
+                if (currentIndex < arcPoints.length - 2) {
+                  model.lookAt(arcPoints[currentIndex + 1]);
+                }
+          
+                progress += speed;
+          
+                if (progress >= 1) {
+                  progress = 0;
+                  currentIndex++;
+                }
+          
+                requestAnimationFrame(step);
+              }
+            };
+          
+            step();
+          };
+          
+
+          // Start the animation
+          animatePlane();
+            
         },
         undefined, // onProgress (optional)
         (error) => {
